@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: bi_dw
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: ecom_dw
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+
+volumes:
+  pg_data:
