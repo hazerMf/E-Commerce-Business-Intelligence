@@ -218,3 +218,5 @@ __marimo__/
 .streamlit/secrets.toml
 
 demo_data.sql
+
+Raw_data/
