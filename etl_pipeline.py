@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 # ==========================================
 # 0. SETUP & CONNECTION
 # ==========================================
-print("🚀 Starting ETL Pipeline...")
+print("Starting ETL Pipeline")
 db_string = "postgresql://admin:admin@localhost:5432/ecom_dw"
 engine = create_engine(db_string)
 data_dir = './Raw_data/'
@@ -12,7 +12,7 @@ data_dir = './Raw_data/'
 # ==========================================
 # 1. EXTRACT
 # ==========================================
-print("📥 Extracting data from CSVs...")
+print("Extracting data from CSVs...")
 df_orders = pd.read_csv(data_dir + 'olist_orders_dataset.csv')
 df_items = pd.read_csv(data_dir + 'olist_order_items_dataset.csv')
 df_products = pd.read_csv(data_dir + 'olist_products_dataset.csv')
@@ -23,7 +23,7 @@ df_geo = pd.read_csv(data_dir + 'olist_geolocation_dataset.csv')
 # ==========================================
 # 2. TRANSFORM
 # ==========================================
-print("⚙️ Transforming data into Star Schema...")
+print("Transforming data into Star Schema...")
 
 # --- A. Transform: Dim Customer ---
 # Deduplicate to get unique humans, rename to match DB columns
@@ -93,7 +93,7 @@ fact = fact[fact['customer_key'].isin(dim_customer['customer_key'])]
 # ==========================================
 # 3. LOAD
 # ==========================================
-print("📤 Loading data into PostgreSQL...")
+print("Loading data into PostgreSQL...")
 
 # Load Dimensions First (because of Foreign Key constraints)
 dim_customer.to_sql('dim_customer', engine, if_exists='append', index=False)
@@ -112,4 +112,4 @@ print("   ✅ dim_order_time loaded.")
 fact.to_sql('fact_order_item', engine, if_exists='append', index=False)
 print("   ✅ fact_order_item loaded.")
 
-print("🎉 ETL Pipeline Complete! Open Metabase to see your data.")
+print("ETL Pipeline Complete!")
