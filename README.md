@@ -12,18 +12,20 @@ A complete, end-to-end **Business Intelligence pipeline** built on the Brazilian
 
 ## Table of Contents
 
-- [Project Overview](#-project-overview)
-- [Architecture](#-architecture)
-- [Dataset](#-dataset)
-- [Data Warehouse Schema (Star Schema)](#-data-warehouse-schema-star-schema)
-- [ETL Pipeline](#-etl-pipeline)
-- [Analytical Queries](#-analytical-queries)
-- [Dashboard](#-dashboard)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [Getting Started](#-getting-started)
-- [Prerequisites](#prerequisites)
-- [Setup & Run](#setup--run)
+- [Project Overview](#project-overview)
+- [Architecture](#architecture)
+- [Dataset](#dataset)
+- [Data Warehouse Schema (Star Schema)](#data-warehouse-schema-star-schema)
+- [ETL Pipeline](#etl-pipeline)
+- [Analytical Queries](#analytical-queries)
+- [Dashboard](#dashboard)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Setup & Run](#setup--run)
+- [Default Credentials](#default-credentials)
+- [License](#license)
 
 ---
 
@@ -33,11 +35,15 @@ This project answers key business questions for an e-commerce company using a fu
 
 | # | Business Question |
 |---|---|
-| 1 | How does monthly revenue trend over time? |
-| 2 | Where are customers located geographically? |
-| 3 | What is the ratio of one-time vs. repeat customers? |
-| 4 | Which are the top 10 products by revenue? |
-| 5 | Which are the top 3 items within each top-selling category? |
+| 1 | What is the overall Average Order Value (AOV)? |
+| 2 | How does monthly revenue trend over time? |
+| 3 | Where are customers located geographically? |
+| 4 | What is the ratio of one-time vs. repeat customers? |
+| 5 | Which are the top 10 product categories by revenue? |
+| 6 | What is the total number of orders placed? |
+| 7 | What is the total revenue generated? |
+| 8 | How do sales volume and revenue vary by day of the week? |
+| 9 | Which states generate the most revenue and unique customers? |
 
 ---
 
@@ -164,49 +170,91 @@ Uses `if_exists='append'` to safely add data without dropping existing tables.
 
 ## Analytical Queries
 
-The file [`question.sql`](./question.sql) contains 5 production-ready analytical queries that power the Metabase dashboard:
+The file [`question.sql`](./question.sql) contains **9 production-ready analytical queries** that power the Metabase dashboard:
+
+| # | Query | Purpose |
+|---|---|---|
+| 1 | Average Order Value | Single KPI scalar — total revenue ÷ distinct orders |
+| 2 | Monthly Revenue | Time-series line chart of revenue per month |
+| 3 | Region Map | Geographic dot-map of sales density by zip-code lat/lon |
+| 4 | Repeat vs. One-Time Customers | Donut chart segmenting customers by purchase frequency |
+| 5 | Top 10 Category by Revenue | Bar chart of the 10 highest-earning product categories |
+| 6 | Total Orders | Single KPI scalar — count of distinct orders |
+| 7 | Total Revenue | Single KPI scalar — sum of all item prices |
+| 8 | Weekday Sales | Bar chart of orders and revenue broken down by day of week |
+| 9 | Revenue by State | Table ranking Brazilian states by unique customers and revenue |
 
 ```sql
--- 1. Monthly Revenue Trend
+-- 1. Average Order Value (AOV)
+SELECT SUM(price) / COUNT(DISTINCT order_id) AS "AOV"
+FROM fact_order_item;
+
+-- 2. Monthly Revenue Trend
 SELECT DATE_TRUNC('month', d.full_date) AS order_month, SUM(f.price) AS total_revenue
 FROM fact_order_item f JOIN dim_order_time d ON f.time_key = d.time_key
 GROUP BY 1 ORDER BY 1;
 
--- 2. Geographic Sales Density (Region Map)
+-- 3. Geographic Sales Density (Region Map)
 SELECT r.latitude, r.longitude, r.state, COUNT(f.sales_key) AS total_items_sold
 FROM fact_order_item f JOIN dim_region r ON f.region_key = r.region_key
 GROUP BY 1, 2, 3;
 
--- 3. One-Time vs. Repeat Customers
+-- 4. One-Time vs. Repeat Customers
 WITH CustomerOrderCounts AS (
   SELECT customer_key, COUNT(DISTINCT order_id) AS total_orders
   FROM fact_order_item GROUP BY 1
 )
-SELECT CASE WHEN total_orders = 1 THEN 'One-Time Customer' ELSE 'Repeat Customer' END,
-       COUNT(customer_key) FROM CustomerOrderCounts GROUP BY 1;
+SELECT CASE WHEN total_orders = 1 THEN 'One-Time Customer' ELSE 'Repeat Customer' END
+            AS customer_type,
+       COUNT(customer_key) AS total_customers
+FROM CustomerOrderCounts GROUP BY 1;
 
--- 4. Top 10 Products by Revenue
-SELECT f.item_key, SUM(f.price) AS total_revenue, COUNT(f.sales_key) AS total_quantity_sold
-FROM fact_order_item f JOIN dim_item d ON f.item_key = d.item_key
-GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
+-- 5. Top 10 Product Categories by Revenue
+SELECT i.category AS product_category, SUM(f.price) AS total_revenue
+FROM fact_order_item f JOIN dim_item i ON f.item_key = i.item_key
+WHERE i.category IS NOT NULL
+GROUP BY i.category ORDER BY total_revenue DESC LIMIT 10;
 
--- 5. Top 3 Items Within Each Top-Selling Category (Window Function)
--- Uses ROW_NUMBER() OVER (PARTITION BY category ORDER BY units_sold DESC)
+-- 6. Total Orders
+SELECT COUNT(DISTINCT order_id) AS "Total Orders"
+FROM fact_order_item;
+
+-- 7. Total Revenue
+SELECT SUM(price) AS "Total Revenue"
+FROM fact_order_item;
+
+-- 8. Sales by Day of Week
+SELECT t.day_of_week, COUNT(DISTINCT f.order_id) AS total_orders, SUM(f.price) AS total_revenue
+FROM fact_order_item f JOIN dim_order_time t ON f.time_key = t.time_key
+GROUP BY t.day_of_week
+ORDER BY CASE t.day_of_week
+    WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
+    WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 WHEN 'Sunday' THEN 7
+END;
+
+-- 9. Revenue and Customers by State
+SELECT c.state, COUNT(DISTINCT f.customer_key) AS total_unique_customers, SUM(f.price) AS total_revenue
+FROM fact_order_item f JOIN dim_customer c ON f.customer_key = c.customer_key
+GROUP BY c.state ORDER BY total_revenue DESC;
 ```
 
 ---
 
 ## Dashboard
 
-The Metabase dashboard (accessible at `http://localhost:3000`) contains **5 interactive visualizations**:
+The Metabase dashboard (accessible at `http://localhost:3000`) contains **9 queries** surfaced across multiple panels:
 
-| Panel | Chart Type | Insight |
-|---|---|---|
-| **Monthly Revenue** | Line chart | Revenue grew from ~$200K/month (Jan 2017) to a peak of ~$1.1M/month (late 2017), with a sharp drop at the end of the dataset |
-| **Region Map** | Geographic map | Sales are heavily concentrated in south-eastern Brazil (SP, RJ, MG states) |
-| **Repeated vs One-Time Customers** | Donut chart | **96.95%** of 95,156 customers are one-time buyers; only **3.05%** return |
-| **Top 10 Items by Revenue** | Combo bar chart | Dual-axis: total revenue vs. total quantity sold per product |
-| **Top 3 Items in Top-Selling Categories** | Data table | Health & beauty leads in revenue ($1.25M), followed by watches/gifts ($1.19M) |
+| Panel | Chart Type | Powered By | Insight |
+|---|---|---|---|
+| **Average Order Value** | Scalar / KPI card | Query 1 | Single headline metric showing the average spend per order |
+| **Monthly Revenue** | Line chart | Query 2 | Revenue grew from ~$200K/month (Jan 2017) to a peak of ~$1.1M/month (late 2017), then drops off at the dataset boundary |
+| **Region Map** | Geographic dot-map | Query 3 | Sales are heavily concentrated in south-eastern Brazil (SP, RJ, MG states) |
+| **Repeated vs One-Time Customers** | Donut chart | Query 4 | **96.95%** of 95,156 customers are one-time buyers; only **3.05%** are repeat purchasers |
+| **Top 10 Categories by Revenue** | Bar chart | Query 5 | Ranking of the 10 highest-grossing product categories (e.g. health & beauty, watches & gifts) |
+| **Total Orders** | Scalar / KPI card | Query 6 | Single headline count of all distinct orders in the dataset |
+| **Total Revenue** | Scalar / KPI card | Query 7 | Single headline sum of all item prices across the dataset |
+| **Sales by Day of Week** | Bar chart | Query 8 | Identifies which weekdays drive the highest order volume and revenue |
+| **Revenue by State** | Table | Query 9 | Ranks Brazilian states by total unique customers and total revenue generated |
 
 ---
 
@@ -244,7 +292,7 @@ E-Commerce-Business-Intelligence/
 │
 ├── etl_pipeline.py                    # Main ETL script (Extract, Transform, Load)
 ├── init.sql                           # PostgreSQL DDL — creates all tables
-├── question.sql                       # 5 analytical SQL queries for the dashboard
+├── question.sql                       # 9 analytical SQL queries for the dashboard
 ├── docker-compose.yml                 # Spins up PostgreSQL + Metabase
 ├── requirements.txt                   # Python dependencies
 ├── dashboard.png                      # Screenshot of the final Metabase dashboard
