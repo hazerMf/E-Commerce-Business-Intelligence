@@ -1,4 +1,9 @@
--- 1. Monthly Rev
+-- 1. Avg order value
+
+SELECT SUM(price) / COUNT(DISTINCT order_id) AS "AOV"
+FROM fact_order_item;
+
+-- 2. Monthly revenue
 
 SELECT 
     DATE_TRUNC('month', d.full_date) AS order_month,
@@ -12,7 +17,7 @@ GROUP BY
 ORDER BY 
     order_month ASC;
 
--- 2. Region map
+-- 3. Region map
 
 SELECT 
     r.latitude, 
@@ -26,7 +31,7 @@ JOIN
 GROUP BY 
     r.latitude, r.longitude, r.state;
 
--- 3. Repeated vs One-time cus
+-- 4. Repeated vs One-time Customer
 
 WITH CustomerOrderCounts AS (
     SELECT 
@@ -51,54 +56,61 @@ GROUP BY
         ELSE 'Repeat Customer' 
     END;
 
--- 4. Top 10 item by rev
+-- 5. Top 10 item category
 
 SELECT 
-    f.item_key AS product_id,
-    SUM(f.price) AS total_revenue,
-    COUNT(f.sales_key) AS total_quantity_sold
-FROM 
-    fact_order_item f
-JOIN 
-    dim_item d ON f.item_key = d.item_key
-GROUP BY 
-    f.item_key
-ORDER BY 
-    total_revenue DESC
+    i.category AS product_category,
+    SUM(f.price) AS total_revenue
+FROM fact_order_item f
+JOIN dim_item i ON f.item_key = i.item_key
+WHERE i.category IS NOT NULL
+GROUP BY i.category
+ORDER BY total_revenue DESC
 LIMIT 10;
 
--- 5. Top 3 item in top sale cate
+-- 6. Total order
 
-WITH ranked_items AS (
-    SELECT 
-        i.category,
-        f.item_key,
-        COUNT(f.sales_key) AS units_sold,
-        SUM(f.price) AS item_revenue,
-        ROW_NUMBER() OVER (
-            PARTITION BY i.category 
-            ORDER BY COUNT(f.sales_key) DESC
-        ) AS item_rank
-    FROM fact_order_item f
-    JOIN dim_item i ON f.item_key = i.item_key
-    GROUP BY i.category, f.item_key
-),
-category_totals AS (
-    SELECT 
-        category,
-        SUM(units_sold) AS total_category_volume,
-        SUM(item_revenue) AS total_category_revenue
-    FROM ranked_items
-    GROUP BY category
-)
+SELECT COUNT(DISTINCT order_id) AS "Total Orders"
+FROM fact_order_item;
+
+-- 7. Total revenue
+
+SELECT SUM(price) AS "Total Revenue"
+FROM fact_order_item;
+
+-- 8. Weekday sales revenue and number
+
 SELECT 
-    ct.category,
-    ct.total_category_volume,
-    ct.total_category_revenue,
-    ri.item_key AS top_performing_item,
-    ri.units_sold AS item_units_sold,
-    ri.item_rank
-FROM category_totals ct
-JOIN ranked_items ri ON ct.category = ri.category
-WHERE ri.item_rank <= 3 -- Change this number to show more or fewer items per category
-ORDER BY ct.total_category_revenue DESC, ri.item_rank;
+    t.day_of_week,
+    COUNT(DISTINCT f.order_id) AS total_orders,
+    SUM(f.price) AS total_revenue
+FROM fact_order_item f
+JOIN dim_order_time t ON f.time_key = t.time_key
+GROUP BY t.day_of_week
+ORDER BY 
+    -- This ensures the days are sorted logically rather than alphabetically
+    CASE t.day_of_week
+        WHEN 'Monday' THEN 1
+        WHEN 'Tuesday' THEN 2
+        WHEN 'Wednesday' THEN 3
+        WHEN 'Thursday' THEN 4
+        WHEN 'Friday' THEN 5
+        WHEN 'Saturday' THEN 6
+        WHEN 'Sunday' THEN 7
+    END;
+
+-- 9. Revenue by state
+
+SELECT
+    c.state,
+    COUNT(DISTINCT f.customer_key) AS total_unique_customers,
+    SUM(f.price) AS total_revenue
+FROM
+    fact_order_item f
+JOIN
+    dim_customer c ON f.customer_key = c.customer_key
+GROUP BY
+    c.state
+ORDER BY
+    total_revenue DESC;
+
