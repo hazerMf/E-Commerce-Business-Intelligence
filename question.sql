@@ -1,9 +1,11 @@
 -- 1. Avg order value
+-- Visualization: Number
 
 SELECT SUM(price) / COUNT(DISTINCT order_id) AS "AOV"
 FROM fact_order_item;
 
 -- 2. Monthly revenue
+-- Visualization: Line chart
 
 SELECT 
     DATE_TRUNC('month', d.full_date) AS order_month,
@@ -18,6 +20,7 @@ ORDER BY
     order_month ASC;
 
 -- 3. Region map
+-- Visualization: Map
 
 SELECT 
     r.latitude, 
@@ -32,6 +35,7 @@ GROUP BY
     r.latitude, r.longitude, r.state;
 
 -- 4. Repeated vs One-time Customer
+-- Visualization: Donut chart
 
 WITH CustomerOrderCounts AS (
     SELECT 
@@ -57,6 +61,7 @@ GROUP BY
     END;
 
 -- 5. Top 10 item category
+-- Visualization: Bar chart (horizontal)
 
 SELECT 
     i.category AS product_category,
@@ -69,16 +74,19 @@ ORDER BY total_revenue DESC
 LIMIT 10;
 
 -- 6. Total order
+-- Visualization: Number
 
 SELECT COUNT(DISTINCT order_id) AS "Total Orders"
 FROM fact_order_item;
 
 -- 7. Total revenue
+-- Visualization: Number
 
 SELECT SUM(price) AS "Total Revenue"
 FROM fact_order_item;
 
 -- 8. Weekday sales revenue and number
+-- Visualization: Bar chart (dual axis)
 
 SELECT 
     t.day_of_week,
@@ -100,6 +108,7 @@ ORDER BY
     END;
 
 -- 9. Revenue by state
+-- Visualization: Donut chart
 
 SELECT
     c.state,
@@ -113,4 +122,3 @@ GROUP BY
     c.state
 ORDER BY
     total_revenue DESC;
-

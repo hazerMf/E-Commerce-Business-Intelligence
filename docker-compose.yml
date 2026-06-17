@@ -10,6 +10,24 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d ecom_dw"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  etl:
+    image: python:3.11-slim
+    container_name: etl_pipeline
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      bash -c "pip install -r requirements.txt -q &&
+               python etl_pipeline.py"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   metabase:
     image: metabase/metabase:latest
@@ -17,7 +35,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
 volumes:
   pg_data:

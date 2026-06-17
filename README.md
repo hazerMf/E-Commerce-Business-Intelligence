@@ -10,6 +10,76 @@ A complete, end-to-end **Business Intelligence pipeline** built on the Brazilian
 
 ---
 
+## Getting Started
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose) *(no Python install needed)*
+
+### Setup & Run
+
+#### Step 1 — Clone the repository
+```bash
+git clone <your-repo-url>
+cd E-Commerce-Business-Intelligence
+```
+
+#### Step 2 — Start everything
+One command starts PostgreSQL, runs the ETL pipeline (schema + data load), and launches Metabase:
+```bash
+docker-compose up
+```
+
+Docker will automatically:
+1. Start and wait for PostgreSQL to be ready
+2. Create all database tables (from `init.sql`)
+3. Run the ETL pipeline to load all data
+
+Expected ETL output in the logs:
+```
+Starting ETL Pipeline
+Initializing database schema...
+   ✅ Schema ready.
+Extracting data from CSVs...
+Transforming data into Star Schema...
+Loading data into PostgreSQL...
+   ✅ dim_customer loaded.
+   ✅ dim_region loaded.
+   ✅ dim_item loaded.
+   ✅ dim_order_time loaded.
+   ✅ fact_order_item loaded.
+ETL Pipeline Complete!
+```
+
+#### Step 3 — Open Metabase and connect the database
+1. Navigate to **http://localhost:3000** in your browser
+2. Complete the Metabase onboarding wizard
+3. When prompted to add a database, use these settings:
+   - **Type:** PostgreSQL
+   - **Host:** `postgres` (the Docker service name)
+   - **Port:** `5432`
+   - **Database name:** `ecom_dw`
+   - **Username:** `admin`
+   - **Password:** `admin`
+
+#### Step 4 — Build queries and create the dashboard
+For each of the 9 queries in [`question.sql`](./question.sql):
+
+1. Click **New → SQL query**
+2. Select the **`ecom_dw`** database
+3. Paste the query and click **Run**
+4. Click **Visualization** at the bottom and select the chart type noted in the query comment
+5. Click **Save**, give it a name, and save it to a collection
+
+Once all 9 questions are saved:
+
+6. Click **New → Dashboard**, give it a name, and create it
+7. Click **Add a question** and add all 9 saved questions
+8. Arrange the panels as desired and click **Save**
+9. To view the finished dashboard, go to **Home → Your personal collection** (or wherever you saved it)
+
+---
+
 ## Table of Contents
 
 - [Project Overview](#project-overview)
@@ -21,9 +91,6 @@ A complete, end-to-end **Business Intelligence pipeline** built on the Brazilian
 - [Dashboard](#dashboard)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Setup & Run](#setup--run)
 - [Default Credentials](#default-credentials)
 - [License](#license)
 
@@ -96,7 +163,7 @@ The raw data is sourced from the publicly available [Brazilian E-Commerce Public
 | `olist_sellers_dataset.csv` | Seller info (city, state, zip) |
 | `product_category_name_translation.csv` | Portuguese → English category name mapping |
 
-> **Note:** All raw CSV files live in the `Raw_data/` directory and are excluded from version control via `.gitignore`.
+> **Note:** All raw CSV files live in the `Raw_data/` directory and are included in this repository.
 
 ---
 
@@ -182,7 +249,7 @@ The file [`question.sql`](./question.sql) contains **9 production-ready analytic
 | 6 | Total Orders | Single KPI scalar — count of distinct orders |
 | 7 | Total Revenue | Single KPI scalar — sum of all item prices |
 | 8 | Weekday Sales | Bar chart of orders and revenue broken down by day of week |
-| 9 | Revenue by State | Table ranking Brazilian states by unique customers and revenue |
+| 9 | Revenue by State | Donut chart of Brazilian states by unique customers and revenue |
 
 ```sql
 -- 1. Average Order Value (AOV)
@@ -254,7 +321,7 @@ The Metabase dashboard (accessible at `http://localhost:3000`) contains **9 quer
 | **Total Orders** | Scalar / KPI card | Query 6 | Single headline count of all distinct orders in the dataset |
 | **Total Revenue** | Scalar / KPI card | Query 7 | Single headline sum of all item prices across the dataset |
 | **Sales by Day of Week** | Bar chart | Query 8 | Identifies which weekdays drive the highest order volume and revenue |
-| **Revenue by State** | Table | Query 9 | Ranks Brazilian states by total unique customers and total revenue generated |
+| **Revenue by State** | Donut chart | Query 9 | Ranks Brazilian states by total unique customers and total revenue generated |
 
 ---
 
@@ -276,7 +343,7 @@ The Metabase dashboard (accessible at `http://localhost:3000`) contains **9 quer
 ```
 E-Commerce-Business-Intelligence/
 │
-├── Raw_data/                          # Raw CSV source files (not tracked in git)
+├── Raw_data/                          # Raw CSV source files
 │   ├── olist_orders_dataset.csv
 │   ├── olist_order_items_dataset.csv
 │   ├── olist_customers_dataset.csv
@@ -293,85 +360,12 @@ E-Commerce-Business-Intelligence/
 ├── etl_pipeline.py                    # Main ETL script (Extract, Transform, Load)
 ├── init.sql                           # PostgreSQL DDL — creates all tables
 ├── question.sql                       # 9 analytical SQL queries for the dashboard
-├── docker-compose.yml                 # Spins up PostgreSQL + Metabase
+├── docker-compose.yml                 # Spins up PostgreSQL + ETL + Metabase
 ├── requirements.txt                   # Python dependencies
 ├── dashboard.png                      # Screenshot of the final Metabase dashboard
 ├── Bài tập lớn Business Intelligence.docx  # Original assignment brief (Vietnamese)
 └── README.md
 ```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-Make sure you have the following installed:
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
-- [Python 3.10+](https://www.python.org/downloads/)
-- The Olist raw CSV files placed inside the `Raw_data/` directory
-
-### Setup & Run
-
-#### Step 1 — Clone the repository
-```bash
-git clone <your-repo-url>
-cd E-Commerce-Business-Intelligence
-```
-
-#### Step 2 — Download the raw data
-Download the Olist dataset from [Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) and place all CSV files into the `Raw_data/` directory.
-
-#### Step 3 — Start the Docker services
-This command launches both **PostgreSQL** and **Metabase**:
-```bash
-docker-compose up -d
-```
-
-Wait ~30 seconds for the containers to fully initialize.
-
-#### Step 4 — Initialize the database schema
-Connect to the PostgreSQL container and run the DDL script:
-```bash
-docker exec -i bi_dw psql -U admin -d ecom_dw < init.sql
-```
-
-#### Step 5 — Install Python dependencies
-```bash
-pip install -r requirements.txt
-```
-
-#### Step 6 — Run the ETL pipeline
-```bash
-python etl_pipeline.py
-```
-
-Expected output:
-```
-Starting ETL Pipeline
-Extracting data from CSVs...
-Transforming data into Star Schema...
-Loading data into PostgreSQL...
-   ✅ dim_customer loaded.
-   ✅ dim_region loaded.
-   ✅ dim_item loaded.
-   ✅ dim_order_time loaded.
-   ✅ fact_order_item loaded.
-ETL Pipeline Complete!
-```
-
-#### Step 7 — Open Metabase and connect the database
-1. Navigate to **http://localhost:3000** in your browser
-2. Complete the Metabase onboarding wizard
-3. When prompted to add a database, use these settings:
-   - **Type:** PostgreSQL
-   - **Host:** `postgres` (the Docker service name)
-   - **Port:** `5432`
-   - **Database name:** `ecom_dw`
-   - **Username:** `admin`
-   - **Password:** `admin`
-4. Create a new dashboard and add questions using the queries in [`question.sql`](./question.sql)
 
 ---
 

@@ -1,13 +1,29 @@
+import os
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 # ==========================================
 # 0. SETUP & CONNECTION
 # ==========================================
 print("Starting ETL Pipeline")
-db_string = "postgresql://admin:admin@localhost:5432/ecom_dw"
+db_string = "postgresql://admin:admin@postgres:5432/ecom_dw"
 engine = create_engine(db_string)
 data_dir = './Raw_data/'
+
+# ==========================================
+# 0.5. INITIALIZE SCHEMA FROM init.sql
+# ==========================================
+print("Initializing database schema...")
+init_sql_path = os.path.join(os.path.dirname(__file__), 'init.sql')
+with open(init_sql_path, 'r') as f:
+    raw_sql = f.read()
+
+# Add IF NOT EXISTS to each CREATE TABLE so re-runs are safe
+init_sql_safe = raw_sql.replace('CREATE TABLE ', 'CREATE TABLE IF NOT EXISTS ')
+
+with engine.begin() as conn:
+    conn.execute(text(init_sql_safe))
+print("   ✅ Schema ready.")
 
 # ==========================================
 # 1. EXTRACT
